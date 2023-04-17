@@ -7,10 +7,11 @@ from mllogger import IntegratedLogger
 from ilkit.algo.base import BasePolicy
 from ilkit.algo.il import *
 from ilkit.algo.rl import *
+from ilkit.algo.model_free_rl import DDPG as DDPG_wpy
 
 # Reinforcement Learning
 RL_AGENTS: Dict[str, BasePolicy] = {
-    "ddpg": DDPG,
+    "ddpg": DDPG_wpy,
     "ddqn": DDQN,
     "dqn": DQN,
     "dueldqn": DuelDQN,
