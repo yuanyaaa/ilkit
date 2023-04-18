@@ -31,7 +31,7 @@ extras["all"] = list(
     set(itertools.chain.from_iterable(map(lambda group: extras[group], extras.keys())))
 )
 
-requires = read_requirements()
+# requires = read_requirements()
 
 setup(
     name="ilkit",

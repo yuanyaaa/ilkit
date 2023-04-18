@@ -11,7 +11,7 @@ from torch import nn, optim
 from ilkit.algo.base import OnlineRLPolicy
 from ilkit.net.actor import MLPDeterministicActor
 from ilkit.net.critic import MLPCritic
-from ilkit.util.ptu import freeze_net, gradient_descent, move_device
+from ilkit.util.ptu import freeze_net, gradient_descent, move_device, tensor2ndarray
 
 
 class DDPG(OnlineRLPolicy):
@@ -23,39 +23,44 @@ class DDPG(OnlineRLPolicy):
 
     def setup_model(self):
         # hyper-param
-        self.target_update_freq = self.algo_cfg["target_update_freq"]
-        self.epsilon = self.algo_cfg["epsilon"]
+        # self.target_update_freq = self.algo_cfg["target_update_freq"]
+        # self.epsilon = self.algo_cfg["epsilon"]
+        self.warmup_steps = self.algo_cfg["warmup_steps"]
+        self.env_steps = self.algo_cfg["env_steps"]
         self.global_t = 0
 
         # Actor network
         actor_kwarg = {
-            "input_shape": self.state_shape,
-            "output_shape": self.action_shape,
-            "net_arch": self.algo_cfg["ActorNet"]["net_arch"],
-            "activation_fn": getattr(nn, self.algo_cfg["ActorNet"]["activation_fn"]),
+            "state_shape": self.state_shape,
+            "action_shape": self.action_shape,
+            "net_arch": self.algo_cfg["actor"]["net_arch"],
+            "activation_fn": getattr(nn, self.algo_cfg["actor"]["activation_fn"]),
         }
 
         self.actor = MLPDeterministicActor(**actor_kwarg)
         self.actor_target = deepcopy(self.actor)
-        self.actor_optim = getattr(optim, self.algo_cfg["ActorNet"]["optimizer"])(
-            self.actor_kwarg.parameters(), self.algo_cfg["ActorNet"]["lr"]
+        self.actor_optim = getattr(optim, self.algo_cfg["actor"]["optimizer"])(
+            self.actor.parameters(), self.algo_cfg["actor"]["lr"]
         )
 
         # Critic network
         critic_kwarg = {
-            "input_shape": self.state_shape+self.action_shape,
+            "input_shape": (self.state_shape[0]+self.action_shape[0],),
             "output_shape": (1, ),
-            "net_arch": self.algo_cfg["CriticNet"]["net_arch"],
-            "activation_fn": getattr(nn, self.algo_cfg["CriticNet"]["activation_fn"]),
+            "net_arch": self.algo_cfg["critic"]["net_arch"],
+            "activation_fn": getattr(nn, self.algo_cfg["critic"]["activation_fn"]),
         }
         self.critic = MLPCritic(**critic_kwarg)
         self.critic_target = deepcopy(self.critic)
-        self.critic_optim = getattr(optim, self.algo_cfg["CriticNet"]["optimizer"])(
-            self.critic_kwarg.parameters(), self.algo_cfg["CriticNet"]["lr"]
+        self.critic_optim = getattr(optim, self.algo_cfg["critic"]["optimizer"])(
+            self.critic.parameters(), self.algo_cfg["critic"]["lr"]
         )
 
-        freeze_net((self.critic_target,))
-        move_device((self.critic, self.critic_target), self.device)
+        freeze_net((self.actor_target, self.critic_target,))
+        move_device(
+            (self.actor, self.actor_target, self.critic, self.critic_target),
+             self.device
+        )
 
         self.models.update(
             {
@@ -88,18 +93,21 @@ class DDPG(OnlineRLPolicy):
         if not deterministic:
             noise = th.rand_like(action) * (self.algo_cfg["expl_std"])
             action = th.clamp(action+noise, -1, 1)
-
         
         if keep_dtype_tensor:
             return action
         else:
-            return action.cpu().numpy()
+            action, = tensor2ndarray((action,))
+            return action
 
     def update_actor(self, states):
-        action= self.select_action(states)
-        Q = self.critic(
-            action, deterministic=True, keep_dtype_tensor=True
+        action= self.select_action(
+            states, 
+            deterministic=True,
+            keep_dtype_tensor=True
         )
+
+        Q = self.critic(states, action)
 
         actor_loss = -th.mean(Q)
         self.log_info.update(
