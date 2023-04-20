@@ -29,6 +29,39 @@ class MLPCritic(Module):
         input_ = th.cat(input_, dim=-1)
         return self.value_net(input_)
 
+class MLPTwinCritic_wpy(Module):
+    def __init__(
+        self,
+        input_shape: Tuple[int,],
+        output_shape: Tuple[int,],
+        net_arch: List[int],
+        activation_fn: Module = ReLU,
+        **kwarg
+    ):
+        """
+        :param input_dim: input dimension (for vector) or input channel (for image)
+        """
+        super().__init__()
+        self.value_net1, _ = mlp(
+            input_shape, output_shape, net_arch, activation_fn, **kwarg
+        )
+        self.value_net2, _ = mlp(
+            input_shape, output_shape, net_arch, activation_fn, **kwarg
+        )
+        self.apply(orthogonal_init_)
+
+    def forward(self, *input_):
+        input_ = th.cat(input_, dim=-1)
+        q1 = self.value_net1(input_)
+        q2 = self.value_net2(input_)
+        return q1, q2
+
+    def Q1(self, *input_):
+        input_ = th.cat(input_, dim=-1)
+        q1 = self.value_net1(input_)
+        return q1
+
+
 
 class MLPTwinCritic(Module):
     def __init__(

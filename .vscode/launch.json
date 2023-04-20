@@ -9,7 +9,7 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "agent=il/airl"
+                "agent=rl/ddpg", "env.id=Hopper-v4",
             ]
         }
     ]

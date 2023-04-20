@@ -2,7 +2,7 @@ algo: ddpg
 gamma: 0.99
 batch_size: 256
 expl_std: 0.1
-warmup_steps: 10_000
+warmup_steps: 1_000
 buffer_size: 1000_000
 env_steps: 1
 

@@ -8,6 +8,7 @@ from ilkit.algo.base import BasePolicy
 from ilkit.algo.il import *
 from ilkit.algo.rl import *
 from ilkit.algo.model_free_rl import DDPG as DDPG_wpy
+from ilkit.algo.model_free_rl import TD3 as TD3_wpy
 
 # Reinforcement Learning
 RL_AGENTS: Dict[str, BasePolicy] = {
@@ -17,7 +18,7 @@ RL_AGENTS: Dict[str, BasePolicy] = {
     "dueldqn": DuelDQN,
     "ppo": PPO,
     "sac": SAC,
-    "td3": TD3,
+    "td3": TD3_wpy,
     "trpo": TRPO,
 }
 

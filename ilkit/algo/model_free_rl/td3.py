@@ -10,12 +10,12 @@ from torch import nn, optim
 
 from ilkit.algo.base import OnlineRLPolicy
 from ilkit.net.actor import MLPDeterministicActor
-from ilkit.net.critic import MLPCritic
+from ilkit.net.critic import MLPTwinCritic_wpy
 from ilkit.util.ptu import freeze_net, gradient_descent, move_device, tensor2ndarray
 
 
-class DDPG(OnlineRLPolicy):
-    """Deep Deterministic Policy Gradient (DDPG)
+class TD3(OnlineRLPolicy):
+    """Twin Delayed Deep Deterministic Policy Gradient (TD3)
     """
 
     def __init__(self, cfg: Dict, logger: IntegratedLogger):
@@ -50,7 +50,7 @@ class DDPG(OnlineRLPolicy):
             "net_arch": self.algo_cfg["critic"]["net_arch"],
             "activation_fn": getattr(nn, self.algo_cfg["critic"]["activation_fn"]),
         }
-        self.critic = MLPCritic(**critic_kwarg)
+        self.critic = MLPTwinCritic_wpy(**critic_kwarg)
         self.critic_target = deepcopy(self.critic)
         self.critic_optim = getattr(optim, self.algo_cfg["critic"]["optimizer"])(
             self.critic.parameters(), self.algo_cfg["critic"]["lr"]
@@ -91,7 +91,11 @@ class DDPG(OnlineRLPolicy):
         action = th.tanh(action)
 
         if not deterministic:
-            noise = th.rand_like(action) * (self.algo_cfg["expl_std"])
+            noise = th.clamp(
+                th.rand_like(action) * (self.algo_cfg["sigma"]), 
+                -self.algo_cfg['c'],
+                self.algo_cfg["c"]
+            )
             action = th.clamp(action+noise, -1, 1)
         
         if keep_dtype_tensor:
@@ -107,7 +111,7 @@ class DDPG(OnlineRLPolicy):
             keep_dtype_tensor=True
         )
 
-        Q = self.critic(states, action)
+        Q = self.critic.Q1(states, action)
 
         actor_loss = -th.mean(Q)
         self.log_info.update(
@@ -132,14 +136,16 @@ class DDPG(OnlineRLPolicy):
                 actor=self.actor_target
             )
             # calculate q target and td target
-            Q_target = self.critic_target(next_states, next_action_pred)
-            TD_target = rewards + self.gamma * (1 - dones) * Q_target
+            Q_target1, Q_target2 = self.critic_target(next_states, next_action_pred)
+            TD_target = rewards + self.gamma * (1 - dones) * th.min(Q_target1, Q_target2)
 
         # calculate q
-        Q = self.critic(states, actions)
+        Q1, Q2 = self.critic(states, actions)
 
         # update q network
-        critic_loss = F.mse_loss(Q, TD_target)
+        critic_loss1 = F.mse_loss(Q1, TD_target)
+        critic_loss2 = F.mse_loss(Q2, TD_target)
+        critic_loss = critic_loss1 + critic_loss2
         self.log_info.update(
             {"loss/critic": gradient_descent(self.critic_optim, critic_loss)}
         )
@@ -158,20 +164,22 @@ class DDPG(OnlineRLPolicy):
                 self.batch_size, shuffle=True
             )
             for _ in range(self.env_steps):
-                self.update_actor(states)
                 self.update_critic(states, actions, next_states, rewards, dones)
-                # update target
-                polyak_update(
-                    self.critic.parameters(),
-                    self.critic_target.parameters(),
-                    self.algo_cfg["critic"]["tau"],
-                )
+                
+                if self.global_t % self.algo_cfg["policy_freq"] == 0:
+                    self.update_actor(states)
+                    # update target
+                    polyak_update(
+                        self.critic.parameters(),
+                        self.critic_target.parameters(),
+                        self.algo_cfg["critic"]["tau"],
+                    )
 
-                polyak_update(
-                    self.actor.parameters(),
-                    self.actor_target.parameters(),
-                    self.algo_cfg["actor"]["tau"],
-                )
+                    polyak_update(
+                        self.actor.parameters(),
+                        self.actor_target.parameters(),
+                        self.algo_cfg["actor"]["tau"],
+                    )
 
 
         return self.log_info
