@@ -4,7 +4,7 @@ batch_size: 256
 sigma: 0.2
 c: 0.5
 policy_freq: 2
-warmup_steps: 10_000
+warmup_steps: 1000
 env_steps: 1
 buffer_size: 1000_000
 

@@ -18,7 +18,7 @@ RL_AGENTS: Dict[str, BasePolicy] = {
     "dueldqn": DuelDQN,
     "ppo": PPO,
     "sac": SAC,
-    "td3": TD3_wpy,
+    "td3": TD3,
     "trpo": TRPO,
 }
 

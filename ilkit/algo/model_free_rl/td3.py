@@ -131,7 +131,7 @@ class TD3(OnlineRLPolicy):
         with th.no_grad():
             next_action_pred = self.select_action(
                 next_states, 
-                deterministic=True,
+                deterministic=False,
                 keep_dtype_tensor=True,
                 actor=self.actor_target
             )
