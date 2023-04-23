@@ -15,12 +15,12 @@ def get_version():
     raise RuntimeError("bad version data in __init__.py")
 
 
-def read_requirements():
-    # To generate requirements:
-    # pipreqs . --ignore [ignored dir] --force
-    with open("./requirements.txt", "r", encoding="utf-8") as f:
-        install_requires = f.read().splitlines()
-    return install_requires
+# def read_requirements():
+#     # To generate requirements:
+#     # pipreqs . --ignore [ignored dir] --force
+#     with open("./requirements.txt", "r", encoding="utf-8") as f:
+#         install_requires = f.read().splitlines()
+#     return install_requires
 
 
 extras = {
@@ -44,7 +44,7 @@ setup(
     python_requires=">=3.7",
     install_requires=[
         "gym==0.21.0",
-        "gymnasium==0.27.1",
+        "gymnasium[all]==0.27.1",
         "h5py",
         "hydra-core==1.3.2",
         "nni",
